@@ -9,6 +9,11 @@ CACHE_DIR = 'faithfulAI-cache'
 SOFTWARE_NAME = 'ImageResizer-r129.exe'
 RESOURCE_PACK = 'FaithfulAI.zip'
 
+def write_help():
+	sys.stdout.write('FaithfulAI --archive=<ArchivePath> [--scaling=<ScalingMultiplier>]\n\
+		<ArchivePath>\t\tPath to the archive containing the assets to use. It can be a minecraft jar or a resource pack.\n\
+		<ScalingMultiplier>\t(Optionnal) Number of times that the upscaling algorithm is applied to the textures. Must be a number greater than zero.\n')
+
 def empty_cache(path):
 	for item in os.listdir(path):
 		item_path = os.path.join(path, item)
@@ -119,11 +124,34 @@ def zip_files(path, zip_ref):
 			zip_files(item_path, zip_ref)
 
 if __name__ == '__main__':
-	source_file = sys.argv[1]
+	settings = {
+		'--assets': None,
+		'--scaling': '1'
+	}
+	for argument in sys.argv[1:]:
+		is_valid = False
+		argument_split = argument.split('=')
+		if argument_split[0] in settings:
+			settings[argument_split[0]] = argument_split[1]
+		else:
+			sys.stderr.write('ERROR: \'%s\' is an invalid argument.\n' % argument_split[0])
+			write_help()
+			sys.exit(1)
+	if settings['--assets'] is None:
+		sys.stderr.write('ERROR: \'--assets\' is required.\n')
+		write_help()
+		sys.exit(1)
 	try:
-		scaling_multiplier = int(sys.argv[2])
+		settings['--scaling'] = int(settings['--scaling'])
 	except:
-		scaling_multiplier = 1
+		sys.stderr.write('ERROR: \'--scaling\' is invalid, %s is not an int.\n' % (settings['--scaling']))
+		write_help()
+		sys.exit(1)
+	if settings['--scaling'] < 1:
+		sys.stderr.write('ERROR: \'--settings\' must be greater than zero.\n')
+		write_help()
+		sys.exit(1)	
+
 	try:
 		os.remove(RESOURCE_PACK)
 	except:
@@ -132,20 +160,21 @@ if __name__ == '__main__':
 		empty_cache(CACHE_DIR)
 	except:
 		pass
-	print('Step 1: Extracting the assets...')
-	extract_assets(source_file)
-	print('Done.\nStep 2: Analysing the textures...')
+
+	sys.stdout.write('Step 1: Extracting the assets...\n')
+	extract_assets(settings['--assets'])
+	sys.stdout.write('Done.\nStep 2: Analysing the textures...\n')
 
 	texture_list = []
 	analyze_textures(CACHE_DIR, texture_list)
 	texture_nb = len(texture_list)
-	print('Done. Found %i %s.' % (texture_nb, 'textures' if texture_nb > 1 else 'texture'))
+	sys.stdout.write('Done. Found %i %s.\n' % (texture_nb, 'textures' if texture_nb > 1 else 'texture'))
 
 	if texture_nb > 0:
 		step_nb = 3
 		thread_nb = multiprocessing.cpu_count()
-		for i in range(scaling_multiplier):
-			print('Step %i: Expanding the textures...' % step_nb)
+		for i in range(settings['--scaling']):
+			sys.stdout.write('Step %i: Expanding the textures...\n' % step_nb)
 			progress_count = 0
 			process_list = []
 			for texture_path in texture_list:
@@ -162,15 +191,17 @@ if __name__ == '__main__':
 				process.start()
 				process_list.append(process)
 				progress_count += 1
-				print('Progress: %.2f%%' % (progress_count / texture_nb * 100))
-			print('Waiting for the processes to finish...')
+				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
+				sys.stdout.flush()
+			sys.stdout.write('Waiting for the processes to finish...\n')
 			progress_count = 0
 			for process in process_list:
 				process.join()
 				progress_count += 1
-				print('Progress: %.2f%%' % (progress_count / len(process_list) * 100))
+				sys.stdout.write('Progress: %.2f%%' % (progress_count / len(process_list) * 100))
+				sys.stdout.flush()
 			step_nb += 1
-			print('Done.\nStep %i: Applying the upscaling algorithm...' % step_nb)
+			sys.stdout.write('Done.\nStep %i: Applying the upscaling algorithm...\n' % step_nb)
 
 			cmd = SOFTWARE_NAME
 			progress_count = 0
@@ -179,30 +210,34 @@ if __name__ == '__main__':
 				texture_cmd = ' /load \"%s\" /resize auto \"%s\" /save \"%s\"' % (texture_path, 'XBR 4x <NoBlend>', texture_path.replace('.png', '_.png'))
 				if len(cmd) + len(texture_cmd) > 4096:
 					process_list.append(subprocess.Popen(cmd, stdout = subprocess.PIPE, shell = True))
-					print('Progress: %.2f%%' % (progress_count / texture_nb * 100))
+					sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
+					sys.stdout.flush()
 					cmd = SOFTWARE_NAME
 				cmd += texture_cmd
 				progress_count += 1
 			if cmd != SOFTWARE_NAME:
 				process_list.append(subprocess.Popen(cmd, stdout = subprocess.PIPE, shell = True))
-				print('Progress: %.2f%%' % (progress_count / texture_nb * 100))
-			print('Waiting for the processes to finish...')
+				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
+				sys.stdout.flush()
+			sys.stdout.write('Waiting for the processes to finish...\n')
 			progress_count = 0
 			for process in process_list:
 				process.communicate()
 				progress_count += 1
-				print('Progress: %.2f%%' % (progress_count / len(process_list) * 100))
+				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / len(process_list) * 100))
+				sys.stdout.flush()
 			step_nb += 1
-			print('Done.\nStep %i: Organizing the textures...' % step_nb)
+			sys.stdout.write('Done.\nStep %i: Organizing the textures...\n' % step_nb)
 
 			progress_count = 0
 			for texture_path in texture_list:
 				os.remove(texture_path)
 				os.rename(texture_path.replace('.png', '_.png'), texture_path)
 				progress_count += 1
-				print('Progress: %.2f%%' % (progress_count / texture_nb * 100))
+				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
+				sys.stdout.flush()
 			step_nb += 1
-			print('Done.\nStep %i: Croping the results...' % step_nb)
+			sys.stdout.write('Done.\nStep %i: Croping the results...\n' % step_nb)
 
 			progress_count = 0
 			process_list = []
@@ -220,15 +255,17 @@ if __name__ == '__main__':
 				process.start()
 				process_list.append(process)
 				progress_count += 1
-				print('Progress: %.2f%%' % (progress_count / texture_nb * 100))
-			print('Waiting for the processes to finish...')
+				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
+				sys.stdout.flush()
+			sys.stdout.write('Waiting for the processes to finish...\n')
 			progress_count = 0
 			for process in process_list:
 				process.join()
 				progress_count += 1
-				print('Progress: %.2f%%' % (progress_count / len(process_list) * 100))
+				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / len(process_list) * 100))
+				sys.stdout.flush()
 			step_nb += 1
-			print('Done.\nStep %i: Polishing the textures...' % step_nb)
+			sys.stdout.write('Done.\nStep %i: Polishing the textures...\n' % step_nb)
 
 			progress_count = 0
 			process_list = []
@@ -246,22 +283,25 @@ if __name__ == '__main__':
 				process.start()
 				process_list.append(process)
 				progress_count += 1
-				print('Progress: %.2f%%' % (progress_count / texture_nb * 100))
-			print('Waiting for the processes to finish...')
+				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
+				sys.stdout.flush()
+			sys.stdout.write('Waiting for the processes to finish...\n')
 			progress_count = 0
 			for process in process_list:
 				process.join()
 				progress_count += 1
-				print('Progress: %.2f%%' % (progress_count / len(process_list) * 100))
+				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / len(process_list) * 100))
+				sys.stdout.flush()
 			step_nb += 1
-			print('Done.')
+			sys.stdout.write('Done.\n')
 
-		print('Step %i: Creating the resource pack...' % step_nb)
+		sys.stdout.write('Step %i: Creating the resource pack...\n' % step_nb)
 		with open('%s/pack.mcmeta' % CACHE_DIR, 'w') as meta_file:
 			meta_file.write('{\"pack\": {\"pack_format\": 5, \"description\": \"FaithfulAI, the first fully generated resource pack.\"}}')
 		with zipfile.ZipFile(RESOURCE_PACK, 'w', zipfile.ZIP_DEFLATED) as zip_ref:
 			zip_files(CACHE_DIR, zip_ref)
-		print('Done.')
+		sys.stdout.write('Done.')
+	
 	try:
 		empty_cache(CACHE_DIR)
 	except:
@@ -270,3 +310,4 @@ if __name__ == '__main__':
 		os.rmdir(CACHE_DIR)
 	except:
 		pass
+	sys.exit(0)
