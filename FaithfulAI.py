@@ -130,9 +130,9 @@ def zip_files(path, zip_ref):
 #----------------------------------------------------------------Utilities
 
 def write_help():
-	print('FaithfulAI --archive=<ArchivePath> [--scaling=<ScalingMultiplier>] [--help]\n\
+	print('\033[34mFaithfulAI\033[39m --assets=<ArchivePath> [--scaling=<ScalingMultiplier>] [--help]\n\
 		<ArchivePath>\t\tPath to the archive containing the assets to use. It can be a minecraft jar or a resource pack.\n\
-		<ScalingMultiplier>\t(Optionnal) Number of times that the upscaling algorithm is applied to the textures. Must be a number greater than zero.\n')
+		<ScalingMultiplier>\t(Optionnal) Number of times that the upscaling algorithm is applied to the textures. Must be a number greater than zero.')
 
 def print_top(text, previous_text, end = ''):
 	previous_text_length = len(previous_text)
@@ -165,7 +165,7 @@ def process_textures(texture_list, function):
 		process.join()
 		progress_count += 1
 		progress_feedback = print_top('Progress: %.2f%%' % (progress_count / len(process_list) * 100), progress_feedback)
-	print_top('Done.', progress_feedback, '\n')
+	print_top('\033[32mDone.\033[39m', progress_feedback, '\n')
 
 #----------------------------------------------------------------Main
 
@@ -184,24 +184,24 @@ if __name__ == '__main__':
 		if argument_split[0] in settings:
 			settings[argument_split[0]] = argument_split[1]
 		else:
-			sys.stderr.write('ERROR: \'%s\' is an invalid argument.\n' % argument_split[0])
+			sys.stderr.write('\033[31mERROR:\033[39m \'%s\' is an invalid argument.\n' % argument_split[0])
 			write_help()
 			colorama.deinit()
 			sys.exit(1)
 	if settings['--assets'] is None:
-		sys.stderr.write('ERROR: \'--assets\' is required.\n')
+		sys.stderr.write('\033[31mERROR:\033[39m \'--assets\' is required.\n')
 		write_help()
 		colorama.deinit()
 		sys.exit(1)
 	try:
 		settings['--scaling'] = int(settings['--scaling'])
 	except:
-		sys.stderr.write('ERROR: \'--scaling\' is invalid, %s is not an int.\n' % settings['--scaling'])
+		sys.stderr.write('\033[31mERROR:\033[39m \'--scaling\' is invalid, %s is not an int.\n' % settings['--scaling'])
 		write_help()
 		colorama.deinit()
 		sys.exit(1)
 	if settings['--scaling'] < 1:
-		sys.stderr.write('ERROR: \'--settings\' must be greater than zero.\n')
+		sys.stderr.write('\033[31mERROR:\033[39m \'--settings\' must be greater than zero.\n')
 		write_help()
 		colorama.deinit()
 		sys.exit(1)	
@@ -217,12 +217,12 @@ if __name__ == '__main__':
 
 	print('Step 1: Extracting the assets...')
 	extract_assets(settings['--assets'])
-	print('Done.\nStep 2: Analysing the textures...')
+	print('\033[32mDone.\033[39m\nStep 2: Analysing the textures...')
 
 	texture_list = []
 	analyze_textures(CACHE_DIR, texture_list)
 	texture_nb = len(texture_list)
-	print('Done. Found %i %s.' % (texture_nb, 'textures' if texture_nb > 1 else 'texture'))
+	print('\033[32mDone.\033[39m Found %i %s.' % (texture_nb, 'textures' if texture_nb > 1 else 'texture'))
 
 	if texture_nb > 0:
 		step_nb = 3
@@ -255,7 +255,7 @@ if __name__ == '__main__':
 				process.communicate()
 				progress_count += 1
 				progress_feedback = print_top('Progress: %.2f%%' % (progress_count / len(process_list) * 100), progress_feedback)
-			print_top('Done.', progress_feedback, '\n')
+			print_top('\033[32mDone.\033[39m', progress_feedback, '\n')
 			step_nb += 1
 
 			print('Step %i: Organizing the textures...' % step_nb)
@@ -266,7 +266,7 @@ if __name__ == '__main__':
 				os.rename(texture_path.replace('.png', '_.png'), texture_path)
 				progress_count += 1
 				progress_feedback = print_top('Progress: %.2f%%' % (progress_count / texture_nb * 100), progress_feedback)
-			print_top('Done.', progress_feedback, '\n')
+			print_top('\033[32mDone.\033[39m', progress_feedback, '\n')
 			step_nb += 1
 
 			print('Step %i: Croping the results...' % step_nb)
@@ -282,7 +282,7 @@ if __name__ == '__main__':
 			meta_file.write('{\"pack\": {\"pack_format\": 5, \"description\": \"FaithfulAI, the first fully generated resource pack.\"}}')
 		with zipfile.ZipFile(RESOURCE_PACK, 'w', zipfile.ZIP_DEFLATED) as zip_ref:
 			zip_files(CACHE_DIR, zip_ref)
-		print('Done. Successfuly generated \'%s\'.' % RESOURCE_PACK)
+		print('\033[32mDone.\033[39m Successfuly generated \'%s\'.' % RESOURCE_PACK)
 	
 	try:
 		empty_cache(CACHE_DIR)
