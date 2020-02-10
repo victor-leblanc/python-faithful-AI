@@ -1,18 +1,22 @@
 import multiprocessing
 import os
-import png
 import subprocess
 import sys
 import zipfile
+try:
+    import colorama
+    import png
+except:
+    sys.stderr.write("ERROR: One or more external modules are not installed, please run \'pip install -r requirements.txt\' in a terminal.")
+    sys.exit(1)
+
+#----------------------------------------------------------------Config
 
 CACHE_DIR = 'faithfulAI-cache'
 SOFTWARE_NAME = 'ImageResizer-r129.exe'
 RESOURCE_PACK = 'FaithfulAI.zip'
 
-def write_help():
-	sys.stdout.write('FaithfulAI --archive=<ArchivePath> [--scaling=<ScalingMultiplier>]\n\
-		<ArchivePath>\t\tPath to the archive containing the assets to use. It can be a minecraft jar or a resource pack.\n\
-		<ScalingMultiplier>\t(Optionnal) Number of times that the upscaling algorithm is applied to the textures. Must be a number greater than zero.\n')
+#----------------------------------------------------------------Steps
 
 def empty_cache(path):
 	for item in os.listdir(path):
@@ -123,33 +127,83 @@ def zip_files(path, zip_ref):
 		else:
 			zip_files(item_path, zip_ref)
 
+#----------------------------------------------------------------Utilities
+
+def write_help():
+	print('FaithfulAI --archive=<ArchivePath> [--scaling=<ScalingMultiplier>] [--help]\n\
+		<ArchivePath>\t\tPath to the archive containing the assets to use. It can be a minecraft jar or a resource pack.\n\
+		<ScalingMultiplier>\t(Optionnal) Number of times that the upscaling algorithm is applied to the textures. Must be a number greater than zero.\n')
+
+def print_top(text, previous_text, end = ''):
+	previous_text_length = len(previous_text)
+	print("\033[%iD" % previous_text_length + text + ' ' * max(0, previous_text_length - len(text)), end = end)
+	return text
+
+def process_textures(texture_list, function):
+	progress_count = 0
+	progress_feedback = ''
+	process_list = []
+	for texture_path in texture_list:
+		process_nb = len(process_list)
+		while process_nb + 1 == thread_nb:
+			i = 0
+			while i < process_nb:
+				if not process_list[i].is_alive():
+					del process_list[i]
+					process_nb -= 1
+				else:
+					i += 1
+		process = multiprocessing.Process(target = function, args = (texture_path,))
+		process.start()
+		process_list.append(process)
+		progress_count += 1
+		progress_feedback = print_top('Progress: %.2f%%' % (progress_count / texture_nb * 100), progress_feedback)
+	print_top('Waiting for the processes to finish...', progress_feedback, '\n')
+	progress_count = 0
+	progress_feedback = ''
+	for process in process_list:
+		process.join()
+		progress_count += 1
+		progress_feedback = print_top('Progress: %.2f%%' % (progress_count / len(process_list) * 100), progress_feedback)
+	print_top('Done.', progress_feedback, '\n')
+
+#----------------------------------------------------------------Main
+
 if __name__ == '__main__':
+	colorama.init()
 	settings = {
 		'--assets': None,
 		'--scaling': '1'
 	}
 	for argument in sys.argv[1:]:
-		is_valid = False
+		if argument == '--help':
+			write_help()
+			colorama.deinit()
+			sys.exit(0)
 		argument_split = argument.split('=')
 		if argument_split[0] in settings:
 			settings[argument_split[0]] = argument_split[1]
 		else:
 			sys.stderr.write('ERROR: \'%s\' is an invalid argument.\n' % argument_split[0])
 			write_help()
+			colorama.deinit()
 			sys.exit(1)
 	if settings['--assets'] is None:
 		sys.stderr.write('ERROR: \'--assets\' is required.\n')
 		write_help()
+		colorama.deinit()
 		sys.exit(1)
 	try:
 		settings['--scaling'] = int(settings['--scaling'])
 	except:
-		sys.stderr.write('ERROR: \'--scaling\' is invalid, %s is not an int.\n' % (settings['--scaling']))
+		sys.stderr.write('ERROR: \'--scaling\' is invalid, %s is not an int.\n' % settings['--scaling'])
 		write_help()
+		colorama.deinit()
 		sys.exit(1)
 	if settings['--scaling'] < 1:
 		sys.stderr.write('ERROR: \'--settings\' must be greater than zero.\n')
 		write_help()
+		colorama.deinit()
 		sys.exit(1)	
 
 	try:
@@ -161,146 +215,74 @@ if __name__ == '__main__':
 	except:
 		pass
 
-	sys.stdout.write('Step 1: Extracting the assets...\n')
+	print('Step 1: Extracting the assets...')
 	extract_assets(settings['--assets'])
-	sys.stdout.write('Done.\nStep 2: Analysing the textures...\n')
+	print('Done.\nStep 2: Analysing the textures...')
 
 	texture_list = []
 	analyze_textures(CACHE_DIR, texture_list)
 	texture_nb = len(texture_list)
-	sys.stdout.write('Done. Found %i %s.\n' % (texture_nb, 'textures' if texture_nb > 1 else 'texture'))
+	print('Done. Found %i %s.' % (texture_nb, 'textures' if texture_nb > 1 else 'texture'))
 
 	if texture_nb > 0:
 		step_nb = 3
 		thread_nb = multiprocessing.cpu_count()
 		for i in range(settings['--scaling']):
-			sys.stdout.write('Step %i: Expanding the textures...\n' % step_nb)
-			progress_count = 0
-			process_list = []
-			for texture_path in texture_list:
-				process_nb = len(process_list)
-				while process_nb + 1 == thread_nb:
-					i = 0
-					while i < process_nb:
-						if not process_list[i].is_alive():
-							del process_list[i]
-							process_nb -= 1
-						else:
-							i += 1
-				process = multiprocessing.Process(target = expand_texture, args = (texture_path,))
-				process.start()
-				process_list.append(process)
-				progress_count += 1
-				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
-				sys.stdout.flush()
-			sys.stdout.write('Waiting for the processes to finish...\n')
-			progress_count = 0
-			for process in process_list:
-				process.join()
-				progress_count += 1
-				sys.stdout.write('Progress: %.2f%%' % (progress_count / len(process_list) * 100))
-				sys.stdout.flush()
+			print('Step %i: Expanding the textures...' % step_nb)
+			process_textures(texture_list, expand_texture)
 			step_nb += 1
-			sys.stdout.write('Done.\nStep %i: Applying the upscaling algorithm...\n' % step_nb)
 
+			print('Step %i: Applying the upscaling algorithm...' % step_nb)
 			cmd = SOFTWARE_NAME
 			progress_count = 0
+			progress_feedback = ''
 			process_list = []
 			for texture_path in texture_list:
 				texture_cmd = ' /load \"%s\" /resize auto \"%s\" /save \"%s\"' % (texture_path, 'XBR 4x <NoBlend>', texture_path.replace('.png', '_.png'))
 				if len(cmd) + len(texture_cmd) > 4096:
 					process_list.append(subprocess.Popen(cmd, stdout = subprocess.PIPE, shell = True))
-					sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
-					sys.stdout.flush()
+					progress_feedback = print_top('Progress: %.2f%%' % (progress_count / texture_nb * 100), progress_feedback)
 					cmd = SOFTWARE_NAME
 				cmd += texture_cmd
 				progress_count += 1
 			if cmd != SOFTWARE_NAME:
 				process_list.append(subprocess.Popen(cmd, stdout = subprocess.PIPE, shell = True))
-				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
-				sys.stdout.flush()
-			sys.stdout.write('Waiting for the processes to finish...\n')
+				progress_feedback = print_top('Progress: %.2f%%' % (progress_count / texture_nb * 100), progress_feedback)
+			print_top('Waiting for the processes to finish...', progress_feedback, '\n')
 			progress_count = 0
+			progress_feedback = ''
 			for process in process_list:
 				process.communicate()
 				progress_count += 1
-				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / len(process_list) * 100))
-				sys.stdout.flush()
+				progress_feedback = print_top('Progress: %.2f%%' % (progress_count / len(process_list) * 100), progress_feedback)
+			print_top('Done.', progress_feedback, '\n')
 			step_nb += 1
-			sys.stdout.write('Done.\nStep %i: Organizing the textures...\n' % step_nb)
 
+			print('Step %i: Organizing the textures...' % step_nb)
 			progress_count = 0
+			progress_feedback = ''
 			for texture_path in texture_list:
 				os.remove(texture_path)
 				os.rename(texture_path.replace('.png', '_.png'), texture_path)
 				progress_count += 1
-				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
-				sys.stdout.flush()
+				progress_feedback = print_top('Progress: %.2f%%' % (progress_count / texture_nb * 100), progress_feedback)
+			print_top('Done.', progress_feedback, '\n')
 			step_nb += 1
-			sys.stdout.write('Done.\nStep %i: Croping the results...\n' % step_nb)
 
-			progress_count = 0
-			process_list = []
-			for texture_path in texture_list:
-				process_nb = len(process_list)
-				while process_nb + 1 == thread_nb:
-					i = 0
-					while i < process_nb:
-						if not process_list[i].is_alive():
-							del process_list[i]
-							process_nb -= 1
-						else:
-							i += 1
-				process = multiprocessing.Process(target = crop_texture, args = (texture_path,))
-				process.start()
-				process_list.append(process)
-				progress_count += 1
-				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
-				sys.stdout.flush()
-			sys.stdout.write('Waiting for the processes to finish...\n')
-			progress_count = 0
-			for process in process_list:
-				process.join()
-				progress_count += 1
-				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / len(process_list) * 100))
-				sys.stdout.flush()
+			print('Step %i: Croping the results...' % step_nb)
+			process_textures(texture_list, crop_texture)
 			step_nb += 1
-			sys.stdout.write('Done.\nStep %i: Polishing the textures...\n' % step_nb)
 
-			progress_count = 0
-			process_list = []
-			for texture_path in texture_list:
-				process_nb = len(process_list)
-				while process_nb + 1 == thread_nb:
-					i = 0
-					while i < process_nb:
-						if not process_list[i].is_alive():
-							del process_list[i]
-							process_nb -= 1
-						else:
-							i += 1
-				process = multiprocessing.Process(target = reduce_texture, args = (texture_path,))
-				process.start()
-				process_list.append(process)
-				progress_count += 1
-				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / texture_nb * 100))
-				sys.stdout.flush()
-			sys.stdout.write('Waiting for the processes to finish...\n')
-			progress_count = 0
-			for process in process_list:
-				process.join()
-				progress_count += 1
-				sys.stdout.write('Progress: %.2f%%\n' % (progress_count / len(process_list) * 100))
-				sys.stdout.flush()
+			print('Step %i: Polishing the textures...' % (len(progress_feedback), step_nb))
+			process_textures(texture_list, reduce_texture)
 			step_nb += 1
-			sys.stdout.write('Done.\n')
 
-		sys.stdout.write('Step %i: Creating the resource pack...\n' % step_nb)
+		print('Step %i: Creating the resource pack...' % step_nb)
 		with open('%s/pack.mcmeta' % CACHE_DIR, 'w') as meta_file:
 			meta_file.write('{\"pack\": {\"pack_format\": 5, \"description\": \"FaithfulAI, the first fully generated resource pack.\"}}')
 		with zipfile.ZipFile(RESOURCE_PACK, 'w', zipfile.ZIP_DEFLATED) as zip_ref:
 			zip_files(CACHE_DIR, zip_ref)
-		sys.stdout.write('Done.')
+		print('Done. Successfuly generated \'%s\'.' % RESOURCE_PACK)
 	
 	try:
 		empty_cache(CACHE_DIR)
@@ -310,4 +292,6 @@ if __name__ == '__main__':
 		os.rmdir(CACHE_DIR)
 	except:
 		pass
+
+	colorama.deinit()
 	sys.exit(0)
