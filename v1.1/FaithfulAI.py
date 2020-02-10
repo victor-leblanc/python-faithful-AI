@@ -140,12 +140,13 @@ if __name__ == '__main__':
 				texture_cmd = ' /load \"%s\" /resize auto \"%s\" /save \"%s\"' % (texture_data['path'], 'EPXB' if texture_data['transparent'] else 'XBR 2x <NoBlend>', texture_data['path'].replace('.png', '_.png'))
 				if len(cmd) + len(texture_cmd) > 4096:
 					os.popen(cmd)
-					cmd = SOFTWARE_NAME
 					print('Progress: %.2f%%' % (progress_count / step_nb * 100))
+					cmd = SOFTWARE_NAME
 				cmd += texture_cmd
 				progress_count += 1
 			if cmd != SOFTWARE_NAME:
 				os.popen(cmd)
+				print('Progress: %.2f%%' % (progress_count / step_nb * 100))
 			for texture_data in texture_list:
 				os.remove(texture_data['path'])
 				os.rename(texture_data['path'].replace('.png', '_.png'), texture_data['path'])
