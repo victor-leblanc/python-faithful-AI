@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -119,13 +120,14 @@ def reduce_texture(texture_path):
 	os.remove(texture_path)
 	os.rename(texture_path.replace('.png', '_.png'), texture_path)
 
-def zip_files(path, zip_ref):
+def zip_files(path, zip_ref, file_nb):
 	for item in os.listdir(path):
 		item_path = os.path.join(path, item)
 		if os.path.isfile(item_path):
 			zip_ref.write(item_path, item_path[len(CACHE_DIR) + 1:])
+			file_nb[0] += 1
 		else:
-			zip_files(item_path, zip_ref)
+			zip_files(item_path, zip_ref, file_nb)
 
 #----------------------------------------------------------------Utilities
 
@@ -134,10 +136,15 @@ def write_help():
 		<ArchivePath>\t\tPath to the archive containing the assets to use. It can be a minecraft jar or a resource pack.\n\
 		<ScalingMultiplier>\t(Optionnal) Number of times that the upscaling algorithm is applied to the textures. Must be a number greater than zero.')
 
-def print_top(text, previous_text, end = ''):
+def print_top(text, previous_text, print_format = '%s', end = ''):
 	previous_text_length = len(previous_text)
-	print("\033[%iD" % previous_text_length + text + ' ' * max(0, previous_text_length - len(text)), end = end)
+	print("\033[%iD" % previous_text_length + print_format % text + ' ' * max(0, previous_text_length - len(text)), end = end)
 	return text
+
+def progress_bar(progress, scale):
+	bar_width = shutil.get_terminal_size((80, 20)).columns - 1
+	scaled_progress = int(progress / scale * bar_width)
+	return '█' * scaled_progress + '░' * (bar_width - scaled_progress)
 
 def process_textures(texture_list, function):
 	progress_count = 0
@@ -153,19 +160,19 @@ def process_textures(texture_list, function):
 					process_nb -= 1
 				else:
 					i += 1
-		process = multiprocessing.Process(target = function, args = (texture_path,))
+		process = multiprocessing.Process(target = function, args = (texture_path, ))
 		process.start()
 		process_list.append(process)
 		progress_count += 1
-		progress_feedback = print_top('Progress: %.2f%%' % (progress_count / texture_nb * 100), progress_feedback)
-	print_top('Waiting for the processes to finish...', progress_feedback, '\n')
+		progress_feedback = print_top(progress_bar(progress_count, texture_nb), progress_feedback)
+	print_top('Waiting for the processes to finish...', progress_feedback, end = '\n')
 	progress_count = 0
 	progress_feedback = ''
 	for process in process_list:
 		process.join()
 		progress_count += 1
-		progress_feedback = print_top('Progress: %.2f%%' % (progress_count / len(process_list) * 100), progress_feedback)
-	print_top('\033[32mDone.\033[39m', progress_feedback, '\n')
+		progress_feedback = print_top(progress_bar(progress_count, len(process_list)), progress_feedback)
+	print_top('SUCCESS', progress_feedback, '\033[32m%s\033[39m', '\n')
 
 #----------------------------------------------------------------Main
 
@@ -184,24 +191,24 @@ if __name__ == '__main__':
 		if argument_split[0] in settings:
 			settings[argument_split[0]] = argument_split[1]
 		else:
-			sys.stderr.write('\033[31mERROR:\033[39m \'%s\' is an invalid argument.\n' % argument_split[0])
+			sys.stderr.write('\033[31mERROR\033[39m \'%s\' is an invalid argument.\n' % argument_split[0])
 			write_help()
 			colorama.deinit()
 			sys.exit(1)
 	if settings['--assets'] is None:
-		sys.stderr.write('\033[31mERROR:\033[39m \'--assets\' is required.\n')
+		sys.stderr.write('\033[31mERROR\033[39m \'--assets\' is required.\n')
 		write_help()
 		colorama.deinit()
 		sys.exit(1)
 	try:
 		settings['--scaling'] = int(settings['--scaling'])
 	except:
-		sys.stderr.write('\033[31mERROR:\033[39m \'--scaling\' is invalid, %s is not an int.\n' % settings['--scaling'])
+		sys.stderr.write('\033[31mERROR\033[39m \'--scaling\' is invalid, %s is not an int.\n' % settings['--scaling'])
 		write_help()
 		colorama.deinit()
 		sys.exit(1)
 	if settings['--scaling'] < 1:
-		sys.stderr.write('\033[31mERROR:\033[39m \'--settings\' must be greater than zero.\n')
+		sys.stderr.write('\033[31mERROR\033[39m \'--settings\' must be greater than zero.\n')
 		write_help()
 		colorama.deinit()
 		sys.exit(1)	
@@ -217,12 +224,12 @@ if __name__ == '__main__':
 
 	print('Step 1: Extracting the assets...')
 	extract_assets(settings['--assets'])
-	print('\033[32mDone.\033[39m\nStep 2: Analysing the textures...')
+	print('\033[32mSUCCESS\033[39m\nStep 2: Analyzing extracted files...')
 
 	texture_list = []
 	analyze_textures(CACHE_DIR, texture_list)
 	texture_nb = len(texture_list)
-	print('\033[32mDone.\033[39m Found %i %s.' % (texture_nb, 'textures' if texture_nb > 1 else 'texture'))
+	print('\033[32mSUCCESS\033[39m Found %i %s.' % (texture_nb, 'textures' if texture_nb > 1 else 'texture'))
 
 	if texture_nb > 0:
 		step_nb = 3
@@ -241,21 +248,21 @@ if __name__ == '__main__':
 				texture_cmd = ' /load \"%s\" /resize auto \"%s\" /save \"%s\"' % (texture_path, 'XBR 4x <NoBlend>', texture_path.replace('.png', '_.png'))
 				if len(cmd) + len(texture_cmd) > 4096:
 					process_list.append(subprocess.Popen(cmd, stdout = subprocess.PIPE, shell = True))
-					progress_feedback = print_top('Progress: %.2f%%' % (progress_count / texture_nb * 100), progress_feedback)
+					progress_feedback = print_top(progress_bar(progress_count, texture_nb), progress_feedback)
 					cmd = SOFTWARE_NAME
 				cmd += texture_cmd
 				progress_count += 1
 			if cmd != SOFTWARE_NAME:
 				process_list.append(subprocess.Popen(cmd, stdout = subprocess.PIPE, shell = True))
-				progress_feedback = print_top('Progress: %.2f%%' % (progress_count / texture_nb * 100), progress_feedback)
-			print_top('Waiting for the processes to finish...', progress_feedback, '\n')
+				progress_feedback = print_top(progress_bar(progress_count, texture_nb), progress_feedback)
+			print_top('Waiting for the processes to finish...', progress_feedback, end = '\n')
 			progress_count = 0
 			progress_feedback = ''
 			for process in process_list:
 				process.communicate()
 				progress_count += 1
-				progress_feedback = print_top('Progress: %.2f%%' % (progress_count / len(process_list) * 100), progress_feedback)
-			print_top('\033[32mDone.\033[39m', progress_feedback, '\n')
+				progress_feedback = print_top(progress_bar(progress_count, len(process_list)), progress_feedback)
+			print_top('SUCCESS', progress_feedback, '\033[32m%s\033[39m', '\n')
 			step_nb += 1
 
 			print('Step %i: Organizing the textures...' % step_nb)
@@ -265,24 +272,25 @@ if __name__ == '__main__':
 				os.remove(texture_path)
 				os.rename(texture_path.replace('.png', '_.png'), texture_path)
 				progress_count += 1
-				progress_feedback = print_top('Progress: %.2f%%' % (progress_count / texture_nb * 100), progress_feedback)
-			print_top('\033[32mDone.\033[39m', progress_feedback, '\n')
+				progress_feedback = print_top(progress_bar(progress_count, texture_nb), progress_feedback)
+			print_top('SUCCESS', progress_feedback, '\033[32m%s\033[39m', '\n')
 			step_nb += 1
 
 			print('Step %i: Croping the results...' % step_nb)
 			process_textures(texture_list, crop_texture)
 			step_nb += 1
 
-			print('Step %i: Polishing the textures...' % (len(progress_feedback), step_nb))
+			print('Step %i: Polishing the textures...' % step_nb)
 			process_textures(texture_list, reduce_texture)
 			step_nb += 1
 
 		print('Step %i: Creating the resource pack...' % step_nb)
 		with open('%s/pack.mcmeta' % CACHE_DIR, 'w') as meta_file:
 			meta_file.write('{\"pack\": {\"pack_format\": 5, \"description\": \"FaithfulAI, the first fully generated resource pack.\"}}')
+		file_nb = [0]
 		with zipfile.ZipFile(RESOURCE_PACK, 'w', zipfile.ZIP_DEFLATED) as zip_ref:
-			zip_files(CACHE_DIR, zip_ref)
-		print('\033[32mDone.\033[39m Successfuly generated \'%s\'.' % RESOURCE_PACK)
+			zip_files(CACHE_DIR, zip_ref, file_nb)
+		print('\033[32mSUCCESS\033[39m Successfuly generated \'%s\' containing %i files.' % (RESOURCE_PACK, file_nb[0]))
 	
 	try:
 		empty_cache(CACHE_DIR)
