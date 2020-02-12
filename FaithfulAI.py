@@ -1,10 +1,10 @@
+import PyQt5.QtWidgets as QtWidgets
 import sys
-import tkinter
 
 from src.window import Window
 
 if __name__ == '__main__':
-	root = tkinter.Tk()
-	window = Window(root)
-	root.mainloop()
-	sys.exit(0)
+	application = QtWidgets.QApplication(sys.argv)
+	window = Window()
+	window.show()
+	sys.exit(application.exec_())

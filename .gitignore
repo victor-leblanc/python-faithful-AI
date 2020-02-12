@@ -4,3 +4,4 @@ faithfulAI-cache
 v0.*
 _old
 config.xml
+__pycache__

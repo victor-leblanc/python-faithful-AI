@@ -1,57 +1,68 @@
+import PyQt5.QtCore as QtCore
+import PyQt5.QtWidgets as QtWidgets
 import os
-import tkinter
 
 from src.config import Config
 from src.language import Language
+from src.utility import Utility
 
-class Window:
-	def __init__(self, master):
-		self.master = master
-		self.master.title("FaithfulAI")
-		self.master.overrideredirect(True)
+class Window(QtWidgets.QWidget):
+	def __init__(self):
+		super().__init__()
+		self.setWindowTitle('FaithfulAI')
+		self.setFixedSize(640, 360)
+		self.windowLayout = QtWidgets.QVBoxLayout(self)
 
-		self.master.update_idletasks()
-		width = 640
-		height = 360
-		x = (self.master.winfo_screenwidth() // 2) - (width // 2)
-		y = (self.master.winfo_screenheight() // 2) - (height // 2)
-		self.master.geometry('{}x{}+{}+{}'.format(width, height, x, y))
+		self.sourceCategoryFrame = QtWidgets.QFrame(self)
+		self.sourceCategoryFrame.setFrameShape(QtWidgets.QFrame.StyledPanel)
+		self.sourceCategoryFrame.setFrameShadow(QtWidgets.QFrame.Raised)
+		self.sourceCategoryFrameLayout = QtWidgets.QVBoxLayout(self.sourceCategoryFrame)
+		self.sourceCategoryLabel = QtWidgets.QLabel(self.sourceCategoryFrame, text = Language.GUI[Config.LANGUAGE]['SOURCE_CATEGORY'])
+		self.sourceCategoryFrameLayout.addWidget(self.sourceCategoryLabel)
+		self.sourceCategoryButton1 = QtWidgets.QRadioButton(Language.GUI[Config.LANGUAGE]['MINECRAFT_VERSION'], self.sourceCategoryFrame)
+		self.sourceCategoryButton1.clicked.connect(lambda: self.updateSourcePathDropdown('MINECRAFT_VERSION'))
+		self.sourceCategoryFrameLayout.addWidget(self.sourceCategoryButton1)
+		self.sourceCategoryButton2 = QtWidgets.QRadioButton(Language.GUI[Config.LANGUAGE]['RESOURCE_PACK'], self.sourceCategoryFrame)
+		self.sourceCategoryButton2.clicked.connect(lambda: self.updateSourcePathDropdown('RESOURCE_PACK'))
+		self.sourceCategoryFrameLayout.addWidget(self.sourceCategoryButton2)
+		self.windowLayout.addWidget(self.sourceCategoryFrame)
 
-		self.source_category = tkinter.StringVar(self.master)
-		self.source_category.set('MINECRAFT_VERSION')
-		self.source_category_title = tkinter.Label(self.master, text = "Source assets selection:")
-		self.source_category_title.pack()
-		self.source_category_minecraft_version = tkinter.Radiobutton(self.master, text = 'Minecraft default assets', variable = self.source_category, value = 'MINECRAFT_VERSION', command = self.source_path_dropdown_fill)
-		self.source_category_minecraft_version.pack()
-		self.source_category_resource_pack = tkinter.Radiobutton(self.master, text = 'Existing resource pack', variable = self.source_category, value = 'RESOURCE_PACK', command = self.source_path_dropdown_fill)
-		self.source_category_resource_pack.pack()
+		self.sourcePathFrame = QtWidgets.QFrame(self)
+		self.sourcePathFrame.setFrameShape(QtWidgets.QFrame.StyledPanel)
+		self.sourcePathFrame.setFrameShadow(QtWidgets.QFrame.Raised)
+		self.sourcePathFrameLayout = QtWidgets.QVBoxLayout(self.sourcePathFrame)
+		self.sourcePathLabel = QtWidgets.QLabel(self.sourcePathFrame, text = Language.GUI[Config.LANGUAGE]['SOURCE_FILE'])
+		self.sourcePathFrameLayout.addWidget(self.sourcePathLabel)
+		self.sourcePathDropdown = QtWidgets.QComboBox(self.sourcePathFrame)
+		self.sourcePathFrameLayout.addWidget(self.sourcePathDropdown)
+		self.windowLayout.addWidget(self.sourcePathFrame)
 
-		self.source_path = tkinter.StringVar(self.master)
-		self.source_path_list = []
-		self.source_path_dropdown = tkinter.OptionMenu(self.master, self.source_path, '', *self.source_path_list)
-		self.source_path_dropdown.pack()
-		self.source_path_dropdown_fill()
+		self.upscalingButton = QtWidgets.QPushButton(Language.GUI[Config.LANGUAGE]['START_UPSCALING'], self)
+		self.upscalingButton.clicked.connect(lambda: self.startUpscaling())
+		self.windowLayout.addWidget(self.upscalingButton)
 
-		self.close_button = tkinter.Button(master, text = "Close", command = master.quit)
-		self.close_button.pack()
+	def displayError(self, errorText):
+		errorWindow = QtWidgets.QMessageBox()
+		errorWindow.setIcon(QtWidgets.QMessageBox.Critical)
+		errorWindow.setText(errorText)
+		errorWindow.setWindowTitle(Language.ERROR[Config.LANGUAGE]['ERROR'])
+		errorWindow.exec_()
 
-	def source_path_dropdown_fill(self):
-		self.source_path_list = []
-		if self.source_category.get() == 'MINECRAFT_VERSION':
-			self.scan_sources('%s/versions' % Config.MINECRAFT_DIRECTORY, 'jar')
+	def startUpscaling(self):
+		sourcePath = None
+		try:
+			sourcePath = self.sourcePathList[self.sourcePathDropdown.currentIndex()]
+		except:
+			self.displayError(Language.ERROR[Config.LANGUAGE]['NO_FILE_SELECTED'])
+			return
+		
+
+	def updateSourcePathDropdown(self, sourceCategory):
+		self.sourcePathList = []
+		if sourceCategory == 'MINECRAFT_VERSION':
+			Utility.scan_folder(self.sourcePathList, '%s/versions' % Config.MINECRAFT_DIRECTORY, 'jar')
 		else:
-			self.scan_sources('%s/resourcepacks' % Config.MINECRAFT_DIRECTORY, 'zip')
-		source_path_dropdown = self.source_path_dropdown['menu']
-		source_path_dropdown.delete(0, 'end')
-		for source_path in self.source_path_list:
-			label = '.minecraft%s' % source_path.split('.minecraft')[1]
-			source_path_dropdown.add_command(label = label, command = lambda value = label: self.source_path.set(source_path))
-
-	def scan_sources(self, folder_path, extension = None):
-		for item in os.listdir(folder_path):
-			item_path = os.path.join(folder_path, item)
-			if os.path.isfile(item_path):
-				if extension is None or item_path.endswith('.%s' % extension):
-					self.source_path_list.append(item_path)
-			else:
-				self.scan_sources(item_path, extension)
+			Utility.scan_folder(self.sourcePathList, '%s/resourcepacks' % Config.MINECRAFT_DIRECTORY, 'zip')
+		self.sourcePathDropdown.clear()
+		for sourcePath in self.sourcePathList:
+			self.sourcePathDropdown.addItem('.minecraft%s' % Utility.normalize_path(sourcePath).split('.minecraft')[1])
