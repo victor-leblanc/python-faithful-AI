@@ -9,12 +9,12 @@ class Upscaler:
 		self.command = Config.UPSCALER
 		self.process_list = []
 		try:
-			os.rename('./src/upscaler/%s' % Config.UPSCALER, './%s' % Config.UPSCALER)
+			os.rename('./bin/%s' % Config.UPSCALER, './%s' % Config.UPSCALER)
 		except:
 			raise Exception(Language.ERROR[Config.LANGUAGE]['UPSCALER_UNIQUE'])
 	
 	def __del__(self):
-		os.rename('./%s' % Config.UPSCALER, './src/upscaler/%s' % Config.UPSCALER)
+		os.rename('./%s' % Config.UPSCALER, './bin/%s' % Config.UPSCALER)
 
 	def upscale(self, texture):
 		texture_command = ' /load \"%s\" /resize auto \"XBR 4x <NoBlend>\" /save \"%s\"' % (texture.path, texture.path.replace('.png', '.tmp.png'))

@@ -7,7 +7,7 @@ from src.pixel import Pixel
 
 class Texture:
 	def __init__(self, path):
-		self.category = path.split(Config.CACHE)[1].split('textures')[1].split('/')[1]
+		self.category = path.split(Config.CACHE)[1].split('textures')[1].replace('\\', '/').split('/')[1]
 		self.name = path.split('/')[-1]
 		self.path = path
 		self.load()

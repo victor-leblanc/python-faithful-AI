@@ -19,6 +19,7 @@ class Language:
         'en': {
             'MINECRAFT_VERSION': 'Minecraft version',
             'RESOURCE_PACK': 'Resource pack',
+            'SELECT_SOURCE': 'Please select a source file.',
             'SOURCE_CATEGORY': 'Source category:',
             'SOURCE_FILE': 'Source file:',
             'START_UPSCALING': 'Start upscaling'
@@ -26,6 +27,7 @@ class Language:
         'fr': {
             'MINECRAFT_VERSION': 'Version de Minecraft',
             'RESOURCE_PACK': 'Pack de ressources',
+            'SELECT_SOURCE': 'Veuillez choisir un fichier source.',
             'SOURCE_CATEGORY': 'Catégorie de ressources:',
             'SOURCE_FILE': 'Fichier source:',
             'START_UPSCALING': 'Démarrer le traitement'

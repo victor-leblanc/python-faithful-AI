@@ -1,45 +1,56 @@
-import PyQt5.QtCore as QtCore
-import PyQt5.QtWidgets as QtWidgets
 import os
+import PyQt5.QtCore as QtCore
+import PyQt5.QtGui as QtGui
+import PyQt5.QtWidgets as QtWidgets
 
+from src.archive import Archive
 from src.config import Config
 from src.language import Language
+from src.texture import Texture
 from src.utility import Utility
 
 class Window(QtWidgets.QWidget):
 	def __init__(self):
 		super().__init__()
 		self.setWindowTitle('FaithfulAI')
-		self.setFixedSize(640, 360)
+		self.setFixedSize(500, 350)
 		self.windowLayout = QtWidgets.QVBoxLayout(self)
 
-		self.sourceCategoryFrame = QtWidgets.QFrame(self)
-		self.sourceCategoryFrame.setFrameShape(QtWidgets.QFrame.StyledPanel)
-		self.sourceCategoryFrame.setFrameShadow(QtWidgets.QFrame.Raised)
-		self.sourceCategoryFrameLayout = QtWidgets.QVBoxLayout(self.sourceCategoryFrame)
-		self.sourceCategoryLabel = QtWidgets.QLabel(self.sourceCategoryFrame, text = Language.GUI[Config.LANGUAGE]['SOURCE_CATEGORY'])
-		self.sourceCategoryFrameLayout.addWidget(self.sourceCategoryLabel)
-		self.sourceCategoryButton1 = QtWidgets.QRadioButton(Language.GUI[Config.LANGUAGE]['MINECRAFT_VERSION'], self.sourceCategoryFrame)
+		self.titlePicture = QtWidgets.QLabel(self)
+		self.titlePicture.setPixmap(QtGui.QPixmap('assets/logo.png'))
+		self.titlePicture.setAlignment(QtCore.Qt.AlignHCenter)
+		self.windowLayout.addWidget(self.titlePicture)
+
+		self.sourceFrame = QtWidgets.QFrame(self)
+		self.sourceFrame.setFrameShape(QtWidgets.QFrame.StyledPanel)
+		self.sourceFrameLayout = QtWidgets.QVBoxLayout(self.sourceFrame)
+		self.sourceCategoryLabel = QtWidgets.QLabel(self.sourceFrame, text = Language.GUI[Config.LANGUAGE]['SOURCE_CATEGORY'])
+		self.sourceFrameLayout.addWidget(self.sourceCategoryLabel)
+		self.sourceCategoryButton1 = QtWidgets.QRadioButton(Language.GUI[Config.LANGUAGE]['MINECRAFT_VERSION'], self.sourceFrame)
 		self.sourceCategoryButton1.clicked.connect(lambda: self.updateSourcePathDropdown('MINECRAFT_VERSION'))
-		self.sourceCategoryFrameLayout.addWidget(self.sourceCategoryButton1)
-		self.sourceCategoryButton2 = QtWidgets.QRadioButton(Language.GUI[Config.LANGUAGE]['RESOURCE_PACK'], self.sourceCategoryFrame)
+		self.sourceFrameLayout.addWidget(self.sourceCategoryButton1)
+		self.sourceCategoryButton2 = QtWidgets.QRadioButton(Language.GUI[Config.LANGUAGE]['RESOURCE_PACK'], self.sourceFrame)
 		self.sourceCategoryButton2.clicked.connect(lambda: self.updateSourcePathDropdown('RESOURCE_PACK'))
-		self.sourceCategoryFrameLayout.addWidget(self.sourceCategoryButton2)
-		self.windowLayout.addWidget(self.sourceCategoryFrame)
+		self.sourceFrameLayout.addWidget(self.sourceCategoryButton2)
 
-		self.sourcePathFrame = QtWidgets.QFrame(self)
-		self.sourcePathFrame.setFrameShape(QtWidgets.QFrame.StyledPanel)
-		self.sourcePathFrame.setFrameShadow(QtWidgets.QFrame.Raised)
-		self.sourcePathFrameLayout = QtWidgets.QVBoxLayout(self.sourcePathFrame)
-		self.sourcePathLabel = QtWidgets.QLabel(self.sourcePathFrame, text = Language.GUI[Config.LANGUAGE]['SOURCE_FILE'])
-		self.sourcePathFrameLayout.addWidget(self.sourcePathLabel)
-		self.sourcePathDropdown = QtWidgets.QComboBox(self.sourcePathFrame)
-		self.sourcePathFrameLayout.addWidget(self.sourcePathDropdown)
-		self.windowLayout.addWidget(self.sourcePathFrame)
+		self.sourcePathLabel = QtWidgets.QLabel(self.sourceFrame, text = Language.GUI[Config.LANGUAGE]['SOURCE_FILE'])
+		self.sourceFrameLayout.addWidget(self.sourcePathLabel)
+		self.sourcePathDropdown = QtWidgets.QComboBox(self.sourceFrame)
+		self.sourceFrameLayout.addWidget(self.sourcePathDropdown)
 
-		self.upscalingButton = QtWidgets.QPushButton(Language.GUI[Config.LANGUAGE]['START_UPSCALING'], self)
-		self.upscalingButton.clicked.connect(lambda: self.startUpscaling())
-		self.windowLayout.addWidget(self.upscalingButton)
+		self.upscalingButton = QtWidgets.QPushButton(Language.GUI[Config.LANGUAGE]['START_UPSCALING'], self.sourceFrame)
+		self.upscalingButton.clicked.connect(self.startUpscaling)
+		self.upscalingButton.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+		self.sourceFrameLayout.addWidget(self.upscalingButton, 1)
+		self.windowLayout.addWidget(self.sourceFrame)
+
+		self.progressBar1 = QtWidgets.QProgressBar(self)
+		self.progressBar1.setAlignment(QtCore.Qt.AlignHCenter)
+		self.windowLayout.addWidget(self.progressBar1)
+		self.progressBar2 = QtWidgets.QProgressBar(self)
+		self.progressBar2.setAlignment(QtCore.Qt.AlignHCenter)
+		self.windowLayout.addWidget(self.progressBar2)
+		self.setLayout(self.windowLayout)
 
 	def displayError(self, errorText):
 		errorWindow = QtWidgets.QMessageBox()
@@ -48,6 +59,16 @@ class Window(QtWidgets.QWidget):
 		errorWindow.setWindowTitle(Language.ERROR[Config.LANGUAGE]['ERROR'])
 		errorWindow.exec_()
 
+	def scanTextures(self, folderPath, textureList, textureCount):
+		for item in os.listdir(folderPath):
+			itemPath = os.path.join(folderPath, item)
+			if os.path.isfile(itemPath):
+				if itemPath.endswith('.png'):
+					textureList.append(Texture(itemPath))
+					textureCount[0] += 1
+			else:
+				self.scanTextures(itemPath, textureList, textureCount)
+
 	def startUpscaling(self):
 		sourcePath = None
 		try:
@@ -55,7 +76,16 @@ class Window(QtWidgets.QWidget):
 		except:
 			self.displayError(Language.ERROR[Config.LANGUAGE]['NO_FILE_SELECTED'])
 			return
-		
+		sourceArchive = Archive(sourcePath)
+		sourceArchive.extract(Config.CACHE,
+			extension_list = ('.mcmeta', '.png'),
+			exception_list = ('assets/minecraft/textures/colormap', 'assets/minecraft/textures/gui/title/background'),
+			folder_list = ('assets')
+		)
+		textureCount = [0]
+		textureList = []
+		self.scanTextures(Config.CACHE, textureList, textureCount)
+		textureCount = textureCount[0]
 
 	def updateSourcePathDropdown(self, sourceCategory):
 		self.sourcePathList = []
