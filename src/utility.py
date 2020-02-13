@@ -2,6 +2,16 @@ import os
 
 class Utility:
 	@staticmethod
+	def delete_folder(path):
+		for item in os.listdir(path):
+			item_path = os.path.join(path, item)
+			if os.path.isfile(item_path):
+				os.remove(item_path)
+			else:
+				Utility.delete_folder(item_path)
+		os.rmdir(path)
+
+	@staticmethod
 	def normalize_path(path):
 		return path.replace('/', '\\') if os.name == 'nt' else path.replace('\\', '/')
 

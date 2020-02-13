@@ -8,7 +8,7 @@ class Pixel:
 		self.r = pixel_data[0]
 		self.g = pixel_data[1]
 		self.b = pixel_data[2]
-		self.a = pixel_data[3]
+		self.a = (pixel_data[3] // 128) * 255
 
 	def as_list(self):
 		return self.r, self.g, self.b, self.a

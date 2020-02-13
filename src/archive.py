@@ -8,19 +8,22 @@ class Archive:
 		self.path = path
 	
 	def extract(self, destination_path, extension_list = None, exception_list = None, folder_list = None):
+		file_nb = 0
 		with zipfile.ZipFile(self.path, 'r') as zip_ref:
 			for item in zip_ref.namelist():
 				if (extension_list is None or any(item.endswith(extension) for extension in extension_list)) and \
 					(exception_list is None or not any(item.startswith(exception) for exception in exception_list)) and \
 					(folder_list is None or any(item.startswith(folder) for folder in folder_list)):
 					zip_ref.extract(item, destination_path)
+					file_nb += 1
+		return file_nb
 	
 	def generate(self, origin_path, destination_path = None):
 		if destination_path is None:
 			destination_path = self.path
 		file_nb = [0]
 		with zipfile.ZipFile(destination_path, 'w', zipfile.ZIP_DEFLATED) as zip_ref:
-			__generate(origin_path, zip_ref, file_nb)
+			self.__generate(origin_path, zip_ref, file_nb)
 		return file_nb[0]
 	
 	def __generate(self, origin_path, archive_file, file_nb, progress_path = None):

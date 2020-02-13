@@ -7,13 +7,11 @@ from src.pixel import Pixel
 
 class Texture:
 	def __init__(self, path):
-		self.category = path.split(Config.CACHE)[1].split('textures')[1].replace('\\', '/').split('/')[1]
+		self.attribute = {}
+		self.path = path.replace('\\', '/')
+		self.category = self.path.split(Config.CACHE)[1].split('textures')[1].split('/')[1]
 		self.name = path.split('/')[-1]
-		self.path = path
 		self.load()
-
-	def __del__(self):
-		os.remove(self.path)
 
 	def crop(self, factor = 3):
 		if factor > 1:
@@ -68,14 +66,36 @@ class Texture:
 			self.size[0] *= factor
 			self.size[1] *= factor
 
+	def is_masked(self):
+		if 'IS_MASKED' in self.attribute:
+			return self.attribute['IS_MASKED']
+		self.attribute['IS_MASKED'] = self.category == 'entity'
+		return self.attribute['IS_MASKED']			
+
+	def is_tiled(self):
+		if 'IS_TILED' in self.attribute:
+			return self.attribute['IS_TILED']
+		match_count = 0
+		match_total = 0
+		for x in range(self.size[0]):
+			if self.grid[0][x].a == self.grid[self.size[1] - 1][x].a == 255:
+				match_count += 1
+			match_total += 1
+		for y in range(self.size[1]):
+			if self.grid[y][0].a == self.grid[y][self.size[0] - 1].a == 255:
+				match_count += 1
+			match_total += 1
+		self.attribute['IS_TILED'] = match_count / match_total > 0.3
+		return self.attribute['IS_TILED']	
+
 	def load(self):
 		with open(self.path, 'rb') as texture_file:
 			texture = png.Reader(file = texture_file).asRGBA8()
 			self.grid = [[Pixel(row[x:x + 4]) for x in range(0, len(row), 4)] for row in texture[2]]
-			self.size = texture[:2]
+			self.size = list(texture[:2])
 
-	def mask(self, mask_path):
-		mask_texture = Texture(mask_path)
+	def mask(self):
+		mask_texture = Texture(self.path.replace('.png', '.mask.png'))
 		factor = self.size[0] / mask_texture.size[0]
 		if factor != int(factor) or self.size[1] / mask_texture.size[1] != factor:
 			raise Exception(Language.ERROR[Config.LANGUAGE]['INVALID_MASK'] % self.name)
@@ -85,8 +105,21 @@ class Texture:
 				if self.grid[y][x].a == 0 and mask_texture.grid[y][x].a == 255:
 					self.grid[y][x] = mask_texture.grid[y][x]
 
-	def save(self):
-		tmp_path = self.path.replace('.png', '.tmp.png')
-		png.from_array(self.grid, 'RGBA;8').save(tmp_path)
+	def merge(self):
 		os.remove(self.path)
+		os.rename(self.path.replace('.png', '.tmp.png'), self.path)		
+
+	def save(self, keep_mask = False):
+		grid = []
+		for y in range(self.size[1]):
+			row = []
+			for x in range(self.size[0]):
+				row.extend(self.grid[y][x].as_list())
+			grid.append(row)
+		tmp_path = self.path.replace('.png', '.tmp.png')
+		png.from_array(grid, 'RGBA;8').save(tmp_path)
+		if keep_mask:
+			os.rename(self.path, self.path.replace('.png', '.mask.png'))
+		else:
+			os.remove(self.path)
 		os.rename(tmp_path, self.path)
