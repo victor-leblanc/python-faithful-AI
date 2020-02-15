@@ -22,7 +22,7 @@ class Window(QtWidgets.QWidget):
 	def __init__(self):
 		super().__init__()
 		self.setWindowTitle('FaithfulAI')
-		self.setFixedSize(500, 350)
+		self.setFixedSize(500, 400)
 		self.windowLayout = QtWidgets.QVBoxLayout(self)
 
 		self.titlePicture = QtWidgets.QLabel(self)
@@ -35,17 +35,37 @@ class Window(QtWidgets.QWidget):
 		self.sourceFrameLayout = QtWidgets.QVBoxLayout(self.sourceFrame)
 		self.sourceCategoryLabel = QtWidgets.QLabel(self.sourceFrame, text = Language.GUI[Config.LANGUAGE]['SOURCE_CATEGORY'])
 		self.sourceFrameLayout.addWidget(self.sourceCategoryLabel)
+		self.sourceCategoryButtonGroup=QtWidgets.QButtonGroup(self.sourceFrame)
 		self.sourceCategoryButton1 = QtWidgets.QRadioButton(Language.GUI[Config.LANGUAGE]['MINECRAFT_VERSION'], self.sourceFrame)
 		self.sourceCategoryButton1.clicked.connect(lambda: self.updateSourcePathDropdown('MINECRAFT_VERSION'))
+		self.sourceCategoryButton1.setChecked(True)
+		self.sourceCategoryButtonGroup.addButton(self.sourceCategoryButton1)
 		self.sourceFrameLayout.addWidget(self.sourceCategoryButton1)
 		self.sourceCategoryButton2 = QtWidgets.QRadioButton(Language.GUI[Config.LANGUAGE]['RESOURCE_PACK'], self.sourceFrame)
 		self.sourceCategoryButton2.clicked.connect(lambda: self.updateSourcePathDropdown('RESOURCE_PACK'))
+		self.sourceCategoryButtonGroup.addButton(self.sourceCategoryButton2)
 		self.sourceFrameLayout.addWidget(self.sourceCategoryButton2)
 
 		self.sourcePathLabel = QtWidgets.QLabel(self.sourceFrame, text = Language.GUI[Config.LANGUAGE]['SOURCE_FILE'])
 		self.sourceFrameLayout.addWidget(self.sourcePathLabel)
 		self.sourcePathDropdown = QtWidgets.QComboBox(self.sourceFrame)
 		self.sourceFrameLayout.addWidget(self.sourcePathDropdown)
+		self.updateSourcePathDropdown('MINECRAFT_VERSION')
+
+		self.processingMethod = None
+		self.processingModeLabel = QtWidgets.QLabel(self.sourceFrame, text = Language.GUI[Config.LANGUAGE]['PROCESSING_MODE'])
+		self.sourceFrameLayout.addWidget(self.processingModeLabel)
+		self.processingModeButtonGroup=QtWidgets.QButtonGroup(self.sourceFrame)
+		self.processingModeButton1 = QtWidgets.QRadioButton(Language.GUI[Config.LANGUAGE]['MULTI_PROCESSING'], self.sourceFrame)
+		self.processingModeButton1.clicked.connect(lambda: self.updateProcessingMode('MULTI_PROCESSING'))
+		self.processingModeButton1.setChecked(True)
+		self.processingModeButtonGroup.addButton(self.processingModeButton1)
+		self.sourceFrameLayout.addWidget(self.processingModeButton1)
+		self.processingModeButton2 = QtWidgets.QRadioButton(Language.GUI[Config.LANGUAGE]['MONO_PROCESSING'], self.sourceFrame)
+		self.processingModeButton2.clicked.connect(lambda: self.updateProcessingMode('MONO_PROCESSING'))
+		self.processingModeButtonGroup.addButton(self.processingModeButton2)
+		self.sourceFrameLayout.addWidget(self.processingModeButton2)
+		self.updateProcessingMode('MULTI_PROCESSING')
 
 		self.upscalingThread = None
 		self.upscalingButton = QtWidgets.QPushButton(Language.GUI[Config.LANGUAGE]['START_UPSCALING'], self.sourceFrame)
@@ -87,20 +107,20 @@ class Window(QtWidgets.QWidget):
 
 	def startUpscaling(self):
 		self.upscalingButton.setEnabled(False)
-		self.upscalingThread = threading.Thread(target = self.__startUpscaling)
-		self.upscalingThread.start()
-
-	def __startUpscaling(self):
 		sourcePath = None
 		try:
 			sourcePath = self.sourcePathList[self.sourcePathDropdown.currentIndex()]
 		except:
 			self.displayError(Language.ERROR[Config.LANGUAGE]['NO_FILE_SELECTED'])
 			return
+		self.upscalingThread = threading.Thread(target = self.processingMethod, args = (sourcePath,))
+		self.upscalingThread.start()
+
+	def __monoUpscaling(self, sourcePath):
 		self.progressBar1Maximum.emit(7)
 		self.progressBar2Maximum.emit(0)
 	
-		self.progressBar1Format.emit('Extracting source files')
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['EXTRACTING_SOURCE'])
 		self.progressBar1Value.emit(1)
 		sourceArchive = Archive(sourcePath)
 		sourceArchive.extract(Config.CACHE,
@@ -109,14 +129,14 @@ class Window(QtWidgets.QWidget):
 			folder_list = ('assets')
 		)
 
-		self.progressBar1Format.emit('Loading textures')
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['LOADING_TEXTURES'])
 		self.progressBar1Value.emit(2)
 		textureCount = [0]
 		textureList = []
 		self.scanTextures(Config.CACHE, textureList, textureCount)
 		textureCount = textureCount[0]
 
-		self.progressBar1Format.emit('Applying pre-processing effects')
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['APPLYING_PRE_PROCESSING'])
 		self.progressBar1Value.emit(3)
 		self.progressBar2Maximum.emit(textureCount)
 		self.progressBar2Value.emit(0)
@@ -125,10 +145,12 @@ class Window(QtWidgets.QWidget):
 			if texture.is_tiled():
 				texture.duplicate()
 				texture.save(texture.is_masked())
+			elif texture.is_masked():
+				texture.save(True)		
 			progressCount += 1
 			self.progressBar2Value.emit(progressCount)
 
-		self.progressBar1Format.emit('Upscaling textures')
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['UPSCALING_TEXTURES'])
 		self.progressBar1Value.emit(4)
 		self.progressBar2Value.emit(0)
 		upscaler = Upscaler()
@@ -137,10 +159,10 @@ class Window(QtWidgets.QWidget):
 			upscaler.upscale(texture)
 			progressCount += 1
 			self.progressBar2Value.emit(progressCount)
-		self.progressBar1Format.emit('Upscaling textures (Waiting for the processes to finish)')
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['UPSCALING_TEXTURES_WAIT'])
 		self.progressBar2Maximum.emit(0)
 		upscaler.wait()
-		self.progressBar1Format.emit('Upscaling textures (Removing the base textures)')
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['UPSCALING_TEXTURES_REMOVE'])
 		self.progressBar2Maximum.emit(textureCount)
 		self.progressBar2Value.emit(0)
 		progressCount = 0
@@ -149,7 +171,7 @@ class Window(QtWidgets.QWidget):
 			progressCount += 1
 			self.progressBar2Value.emit(progressCount)
 
-		self.progressBar1Format.emit('Applying post-processing effects')
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['APPLYING_POST_PROCESSING'])
 		self.progressBar1Value.emit(5)
 		self.progressBar2Value.emit(0)
 		progressCount = 0
@@ -160,13 +182,13 @@ class Window(QtWidgets.QWidget):
 			texture.downscale()
 			if texture.is_masked():
 				texture.mask()
-				os.remove(self.path.replace('.png', '.mask.png'))
+				os.remove(texture.path.replace('.png', '.mask.png'))
 			texture.save()
 			del texture
 			progressCount += 1
 			self.progressBar2Value.emit(progressCount)
 
-		self.progressBar1Format.emit('Generating resource pack')
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['GENERATING_RESOURCE_PACK'])
 		self.progressBar1Value.emit(6)
 		self.progressBar2Maximum.emit(0)
 		with open('%s/pack.mcmeta' % Config.CACHE, 'w') as metaFile:
@@ -174,11 +196,20 @@ class Window(QtWidgets.QWidget):
 		outputArchive = Archive('FaithfulAI - %s.zip' % sourcePath.replace('\\', '/').split('/')[-1].split('.')[0])
 		outputArchive.generate(Config.CACHE, destination_path = '%s/resourcepacks/%s' % (Config.MINECRAFT_DIRECTORY, outputArchive.path))
 
-		self.progressBar1Format.emit('Done')
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['DONE'])
 		self.progressBar1Value.emit(8)
 		self.progressBar2Maximum.emit(1)
 		self.progressBar2Value.emit(1)
 		self.upscalingButtonEnabled.emit(True)
+
+	def __multiUpscaling(self, sourcePath):
+		self.upscalingButtonEnabled.emit(True)
+
+	def updateProcessingMode(self, processingMode):
+		if processingMode == 'MULTI_PROCESSING':
+			self.processingMethod = self.__multiUpscaling
+		else:
+			self.processingMethod = self.__monoUpscaling
 
 	def updateSourcePathDropdown(self, sourceCategory):
 		self.sourcePathList = []

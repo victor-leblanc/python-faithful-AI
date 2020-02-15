@@ -35,4 +35,4 @@ class Archive:
 				archive_file.write(item_path, item_path[len(origin_path) + 1:])
 				file_nb[0] += 1
 			else:
-				zip_files(origin_path, archive_file, file_nb, progress_path)
+				__generate(origin_path, archive_file, file_nb, progress_path)

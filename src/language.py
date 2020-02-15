@@ -17,19 +17,43 @@ class Language:
     }
     GUI = {
         'en': {
+            'APPLYING_POST_PROCESSING': 'Applying post-processing effects',
+            'APPLYING_PRE_PROCESSING': 'Applying pre-processing effects',
+            'DONE': 'Done',
+            'EXTRACTING_SOURCE': 'Extracting source file',
+            'GENERATING_RESOURCE_PACK': 'Generating resource pack',
+            'LOADING_TEXTURES': 'Loading textures',
             'MINECRAFT_VERSION': 'Minecraft version',
+            'MONO_PROCESSING': 'Mono-processing',
+            'MULTI_PROCESSING': 'Multi-processing (recommanded)',
+            'PROCESSING_MODE': 'Processing mode',
             'RESOURCE_PACK': 'Resource pack',
             'SELECT_SOURCE': 'Please select a source file.',
             'SOURCE_CATEGORY': 'Source category:',
             'SOURCE_FILE': 'Source file:',
-            'START_UPSCALING': 'Start upscaling'
+            'START_UPSCALING': 'Start upscaling',
+            'UPSCALING_TEXTURES': 'Upscaling textures',
+            'UPSCALING_TEXTURES_WAIT': 'Upscaling textures (Waiting for the processes to finish)',
+            'UPSCALING_TEXTURES_REMOVE': 'Upscaling textures (Removing the base textures)'
         },
         'fr': {
+            'APPLYING_POST_PROCESSING': 'Application des effets post-processing',
+            'APPLYING_PRE_PROCESSING': 'Application des effets pre-processing',
+            'DONE': 'Terminé',
+            'EXTRACTING_SOURCE': 'Extraction du fichier source',
+            'GENERATING_RESOURCE_PACK': 'Génération du resource pack',
+            'LOADING_TEXTURES': 'Chargement des textures',
             'MINECRAFT_VERSION': 'Version de Minecraft',
+            'MONO_PROCESSING': 'Mono-processus',
+            'MULTI_PROCESSING': 'Multi-processus (recommandé)',
+            'PROCESSING_MODE': 'Mode de traitement',
             'RESOURCE_PACK': 'Pack de ressources',
             'SELECT_SOURCE': 'Veuillez choisir un fichier source.',
             'SOURCE_CATEGORY': 'Catégorie de ressources:',
             'SOURCE_FILE': 'Fichier source:',
-            'START_UPSCALING': 'Démarrer le traitement'
+            'START_UPSCALING': 'Démarrer le traitement',
+            'UPSCALING_TEXTURES': 'Upscaling des textures',
+            'UPSCALING_TEXTURES_WAIT': 'Upscaling des textures (Attente des processus en cours)',
+            'UPSCALING_TEXTURES_REMOVE': 'Upscaling textures (Suppression des textures de base)'
         }
     }

@@ -63,6 +63,7 @@ class Texture:
 						row.append(self.grid[y][x])
 				for i in range(factor):
 					grid.append(row)
+			self.grid = grid
 			self.size[0] *= factor
 			self.size[1] *= factor
 
@@ -96,7 +97,7 @@ class Texture:
 
 	def mask(self):
 		mask_texture = Texture(self.path.replace('.png', '.mask.png'))
-		factor = self.size[0] / mask_texture.size[0]
+		factor = self.size[0] // mask_texture.size[0]
 		if factor != int(factor) or self.size[1] / mask_texture.size[1] != factor:
 			raise Exception(Language.ERROR[Config.LANGUAGE]['INVALID_MASK'] % self.name)
 		mask_texture.expand(factor = factor)
