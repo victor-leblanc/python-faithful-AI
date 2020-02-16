@@ -30,9 +30,9 @@ class Archive:
 		if progress_path is None:
 			progress_path = origin_path
 		for item in os.listdir(progress_path):
-			item_path = os.path.join(origin_path, item)
+			item_path = os.path.normpath(os.path.join(progress_path, item))
 			if os.path.isfile(item_path):
 				archive_file.write(item_path, item_path[len(origin_path) + 1:])
 				file_nb[0] += 1
 			else:
-				__generate(origin_path, archive_file, file_nb, progress_path)
+				self.__generate(origin_path, archive_file, file_nb, item_path)

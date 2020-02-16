@@ -8,9 +8,9 @@ from src.pixel import Pixel
 class Texture:
 	def __init__(self, path):
 		self.attribute = {}
-		self.path = path.replace('\\', '/')
-		self.category = self.path.split(Config.CACHE)[1].split('textures')[1].split('/')[1]
-		self.name = path.split('/')[-1]
+		self.category = path.split(Config.CACHE)[1].split('textures')[1].split(os.path.sep)[1]
+		self.name = path.split(os.path.sep)[-1]
+		self.path = path
 		self.load()
 
 	def crop(self, factor = 3):

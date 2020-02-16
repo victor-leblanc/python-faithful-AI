@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import PyQt5.QtCore as QtCore
 import PyQt5.QtGui as QtGui
@@ -16,6 +17,7 @@ class Window(QtWidgets.QWidget):
 	progressBar1Format = QtCore.pyqtSignal(str)
 	progressBar1Maximum = QtCore.pyqtSignal(int)
 	progressBar1Value = QtCore.pyqtSignal(int)
+	progressBar2Format = QtCore.pyqtSignal(str)
 	progressBar2Maximum = QtCore.pyqtSignal(int)
 	progressBar2Value = QtCore.pyqtSignal(int)
 
@@ -83,6 +85,7 @@ class Window(QtWidgets.QWidget):
 		self.windowLayout.addWidget(self.progressBar1)
 		self.progressBar2 = QtWidgets.QProgressBar(self)
 		self.progressBar2.setAlignment(QtCore.Qt.AlignHCenter)
+		self.progressBar2Format.connect(self.progressBar2.setFormat)
 		self.progressBar2Maximum.connect(self.progressBar2.setMaximum)
 		self.progressBar2Value.connect(self.progressBar2.setValue)
 		self.windowLayout.addWidget(self.progressBar2)
@@ -95,28 +98,27 @@ class Window(QtWidgets.QWidget):
 		errorWindow.setWindowTitle(Language.ERROR[Config.LANGUAGE]['ERROR'])
 		errorWindow.exec_()
 
-	def scanTextures(self, folderPath, textureList, textureCount):
+	def loadTextures(self, folderPath, textureList, textureCount):
 		for item in os.listdir(folderPath):
-			itemPath = os.path.join(folderPath, item)
+			itemPath = os.path.normpath(os.path.join(folderPath, item))
 			if os.path.isfile(itemPath):
 				if itemPath.endswith('.png'):
 					textureList.append(Texture(itemPath))
 					textureCount[0] += 1
 			else:
-				self.scanTextures(itemPath, textureList, textureCount)
+				self.loadTextures(itemPath, textureList, textureCount)
 
-	def startUpscaling(self):
-		self.upscalingButton.setEnabled(False)
-		sourcePath = None
-		try:
-			sourcePath = self.sourcePathList[self.sourcePathDropdown.currentIndex()]
-		except:
-			self.displayError(Language.ERROR[Config.LANGUAGE]['NO_FILE_SELECTED'])
-			return
-		self.upscalingThread = threading.Thread(target = self.processingMethod, args = (sourcePath,))
-		self.upscalingThread.start()
+	def scanTextures(self, folderPath, texturePathList, textureCount):
+		for item in os.listdir(folderPath):
+			itemPath = os.path.normpath(os.path.join(folderPath, item))
+			if os.path.isfile(itemPath):
+				if itemPath.endswith('.png'):
+					texturePathList.append(itemPath)
+					textureCount[0] += 1
+			else:
+				self.scanTextures(itemPath, texturePathList, textureCount)
 
-	def __monoUpscaling(self, sourcePath):
+	def __startMonoUpscaling(self, sourcePath):
 		self.progressBar1Maximum.emit(7)
 		self.progressBar2Maximum.emit(0)
 	
@@ -133,7 +135,7 @@ class Window(QtWidgets.QWidget):
 		self.progressBar1Value.emit(2)
 		textureCount = [0]
 		textureList = []
-		self.scanTextures(Config.CACHE, textureList, textureCount)
+		self.loadTextures(Config.CACHE, textureList, textureCount)
 		textureCount = textureCount[0]
 
 		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['APPLYING_PRE_PROCESSING'])
@@ -193,23 +195,95 @@ class Window(QtWidgets.QWidget):
 		self.progressBar2Maximum.emit(0)
 		with open('%s/pack.mcmeta' % Config.CACHE, 'w') as metaFile:
 			metaFile.write('{\"pack\": {\"pack_format\": 5, \"description\": \"FaithfulAI, the first fully generated resource pack.\"}}')
-		outputArchive = Archive('FaithfulAI - %s.zip' % sourcePath.replace('\\', '/').split('/')[-1].split('.')[0])
+		outputArchive = Archive('FaithfulAI - %s.zip' % ''.join(sourcePath.split(os.path.sep)[-1].split('.')[:-1]))
 		outputArchive.generate(Config.CACHE, destination_path = '%s/resourcepacks/%s' % (Config.MINECRAFT_DIRECTORY, outputArchive.path))
 
 		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['DONE'])
-		self.progressBar1Value.emit(8)
+		self.progressBar1Value.emit(7)
 		self.progressBar2Maximum.emit(1)
 		self.progressBar2Value.emit(1)
 		self.upscalingButtonEnabled.emit(True)
 
-	def __multiUpscaling(self, sourcePath):
+	def __startMultiUpscaling(self, sourcePath):
+		self.progressBar1Maximum.emit(5)
+		self.progressBar2Maximum.emit(0)
+	
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['EXTRACTING_SOURCE'])
+		self.progressBar1Value.emit(1)
+		sourceArchive = Archive(sourcePath)
+		sourceArchive.extract(Config.CACHE,
+			extension_list = ('.mcmeta', '.png'),
+			exception_list = ('assets/minecraft/textures/colormap', 'assets/minecraft/textures/gui/title/background'),
+			folder_list = ('assets')
+		)
+
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['SCANNING_TEXTURES'])
+		self.progressBar1Value.emit(2)
+		textureCount = [0]
+		texturePathList = []
+		self.scanTextures(Config.CACHE, texturePathList, textureCount)
+		textureCount = textureCount[0]
+
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['PROCESSING_TEXTURES'])
+		self.progressBar1Value.emit(3)
+		self.progressBar2Maximum.emit(textureCount)
+		processList = []
+		threadCount = multiprocessing.cpu_count()
+		os.rename('./bin/%s' % Config.UPSCALER, './%s' % Config.UPSCALER)
+		for progress in range(textureCount):
+			processCount = len(processList)
+			while processCount + 1 == threadCount:
+				processId = 0
+				while processId < processCount:
+					if not processList[processId].is_alive():
+						del processList[processId]
+						processCount -= 1
+					else:
+						processId += 1
+			texturePath = texturePathList[progress]
+			self.progressBar2Format.emit('%s (%i/%i)' % (texturePath.split(os.path.sep)[-1], progress + 1, textureCount))
+			self.progressBar2Value.emit(progress + 1)
+			processList.append(multiprocessing.Process(target = Utility.upscale_texture, args = (texturePath,)))
+			processList[-1].start()
+		processCount = len(processList)
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['PROCESSING_TEXTURES_WAIT'])
+		self.progressBar2.resetFormat()
+		self.progressBar2Maximum.emit(processCount)
+		for progress in range(processCount):
+			self.progressBar2Value.emit(progress + 1)
+			processList[progress].join()
+		os.rename('./%s' % Config.UPSCALER, './bin/%s' % Config.UPSCALER)
+
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['GENERATING_RESOURCE_PACK'])
+		self.progressBar1Value.emit(4)
+		self.progressBar2Maximum.emit(0)
+		with open('%s/pack.mcmeta' % Config.CACHE, 'w') as metaFile:
+			metaFile.write('{\"pack\": {\"pack_format\": 5, \"description\": \"FaithfulAI, the first fully generated resource pack.\"}}')
+		outputArchive = Archive('FaithfulAI - %s.zip' % ''.join(sourcePath.split(os.path.sep)[-1].split('.')[:-1]))
+		outputArchive.generate(Config.CACHE, destination_path = '%s/resourcepacks/%s' % (Config.MINECRAFT_DIRECTORY, outputArchive.path))
+
+		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['DONE'])
+		self.progressBar1Value.emit(5)
+		self.progressBar2Maximum.emit(1)
+		self.progressBar2Value.emit(1)
 		self.upscalingButtonEnabled.emit(True)
+
+	def startUpscaling(self):
+		self.upscalingButton.setEnabled(False)
+		sourcePath = None
+		try:
+			sourcePath = self.sourcePathList[self.sourcePathDropdown.currentIndex()]
+		except:
+			self.displayError(Language.ERROR[Config.LANGUAGE]['NO_FILE_SELECTED'])
+			return
+		self.upscalingThread = threading.Thread(target = self.processingMethod, args = (sourcePath,))
+		self.upscalingThread.start()
 
 	def updateProcessingMode(self, processingMode):
 		if processingMode == 'MULTI_PROCESSING':
-			self.processingMethod = self.__multiUpscaling
+			self.processingMethod = self.__startMultiUpscaling
 		else:
-			self.processingMethod = self.__monoUpscaling
+			self.processingMethod = self.__startMonoUpscaling
 
 	def updateSourcePathDropdown(self, sourceCategory):
 		self.sourcePathList = []
@@ -219,4 +293,4 @@ class Window(QtWidgets.QWidget):
 			Utility.scan_folder(self.sourcePathList, '%s/resourcepacks' % Config.MINECRAFT_DIRECTORY, 'zip')
 		self.sourcePathDropdown.clear()
 		for sourcePath in self.sourcePathList:
-			self.sourcePathDropdown.addItem('.minecraft%s' % Utility.normalize_path(sourcePath).split('.minecraft')[1])
+			self.sourcePathDropdown.addItem('.minecraft%s' % os.path.normpath(sourcePath).split('.minecraft')[1])
