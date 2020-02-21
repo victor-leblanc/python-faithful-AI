@@ -195,7 +195,7 @@ class Window(QtWidgets.QWidget):
 		self.progressBar2Maximum.emit(0)
 		with open('%s/pack.mcmeta' % Config.CACHE, 'w') as metaFile:
 			metaFile.write('{\"pack\": {\"pack_format\": 5, \"description\": \"FaithfulAI, the first fully generated resource pack.\"}}')
-		outputArchive = Archive('FaithfulAI - %s.zip' % ''.join(sourcePath.split(os.path.sep)[-1].split('.')[:-1]))
+		outputArchive = Archive('FaithfulAI - %s.zip' % '.'.join(sourcePath.split(os.path.sep)[-1].split('.')[:-1]))
 		outputArchive.generate(Config.CACHE, destination_path = '%s/resourcepacks/%s' % (Config.MINECRAFT_DIRECTORY, outputArchive.path))
 
 		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['DONE'])
@@ -207,7 +207,7 @@ class Window(QtWidgets.QWidget):
 	def __startMultiUpscaling(self, sourcePath):
 		self.progressBar1Maximum.emit(5)
 		self.progressBar2Maximum.emit(0)
-	
+
 		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['EXTRACTING_SOURCE'])
 		self.progressBar1Value.emit(1)
 		sourceArchive = Archive(sourcePath)
@@ -259,7 +259,7 @@ class Window(QtWidgets.QWidget):
 		self.progressBar2Maximum.emit(0)
 		with open('%s/pack.mcmeta' % Config.CACHE, 'w') as metaFile:
 			metaFile.write('{\"pack\": {\"pack_format\": 5, \"description\": \"FaithfulAI, the first fully generated resource pack.\"}}')
-		outputArchive = Archive('FaithfulAI - %s.zip' % ''.join(sourcePath.split(os.path.sep)[-1].split('.')[:-1]))
+		outputArchive = Archive('FaithfulAI - %s.zip' % '.'.join(sourcePath.split(os.path.sep)[-1].split('.')[:-1]))
 		outputArchive.generate(Config.CACHE, destination_path = '%s/resourcepacks/%s' % (Config.MINECRAFT_DIRECTORY, outputArchive.path))
 
 		self.progressBar1Format.emit(Language.GUI[Config.LANGUAGE]['DONE'])

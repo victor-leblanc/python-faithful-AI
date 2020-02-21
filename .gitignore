@@ -6,3 +6,4 @@ v0.*
 _old
 config.xml
 __pycache__
+*.spec
