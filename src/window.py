@@ -127,7 +127,7 @@ class Window(QtWidgets.QWidget):
 		sourceArchive = Archive(sourcePath)
 		sourceArchive.extract(Config.CACHE,
 			extension_list = ('.mcmeta', '.png'),
-			exception_list = ('assets/minecraft/textures/colormap', 'assets/minecraft/textures/gui/title/background'),
+			exception_list = ('assets/minecraft/textures/colormap', 'assets/minecraft/textures/gui/title/background', 'assets/realms/textures/gui/realms/images'),
 			folder_list = ('assets')
 		)
 
